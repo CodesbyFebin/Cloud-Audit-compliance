@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS Variables */
+:root {
+  --tremor-text: 255 255 255;
+  --tremor-brand: 51 120 255;
+  --tremor-success: 34 197 94;
+  --tremor-warning: 245 158 11;
+  --tremor-danger: 239 68 68;
+}
+
+/* Global styles */
+body {
+  @apply bg-slate-900 text-white font-sans antialiased;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(18, 19, 26, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2c3a #12131a;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12131a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2c3a;
+  border-radius: 3px;
+}

@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audit-compliance-ingress
+  namespace: audit-compliance
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "http"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers 'Strict-Transport-Security: max-age=31536000; includeSubDomains; preload';
+spec:
+  tls:
+  - hosts:
+    - auditcompliance.cloud
+    - www.auditcompliance.cloud
+    secretName: auditcompliance-tls
+  rules:
+  - host: auditcompliance.cloud
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-api
+            port:
+              number: 8000
+  - host: www.auditcompliance.cloud
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-api
+            port:
+              number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Service
+metadata:
+  name: nginx-ingress-controller
+  namespace: audit-compliance
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+    targetPort: 443

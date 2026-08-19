@@ -1,0 +1,103 @@
+# EKS Helm Values for AuditCompliance.cloud
+
+# PostgreSQL settings
+postgres:
+  enabled: true
+  postgresqlPostgresPassword: "audit-secure-password"
+  postgresqlDatabase: "auditcompliance"
+  postgresqlUsername: "audit_user"
+  service:
+    type: ClusterIP
+    port: 5432
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: "gp2"
+
+# Redis settings
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  persistence:
+    enabled: true
+    size: 5Gi
+  service:
+    type: ClusterIP
+    port: 6379
+
+# Backend API settings
+backend:
+  replicaCount: 3
+  image:
+    repository: auditcompliance/backend
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: auditcompliance.cloud
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: auditcompliance-tls
+        hosts:
+          - auditcompliance.cloud
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: postgres-postgresql
+          key: postgresql-postgresqlPassword
+    - name: REDIS_URL
+      value: "redis://{{ .Release.Name }}-redis:6379/0"
+    - name: SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: auditcompliance-secrets
+          key: SECRET_KEY
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Frontend settings
+frontend:
+  replicaCount: 2
+  image:
+    repository: auditcompliance/frontend
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: true
+    hosts:
+      - host: auditcompliance.cloud
+        paths:
+          - path: /
+            pathType: Prefix
+  resources:
+    limits:
+      cpu: 300m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi

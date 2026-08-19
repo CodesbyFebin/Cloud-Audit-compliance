@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audit-compliance-nginx
+  namespace: audit-compliance
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "http"
+    cert-manager.io/cluster-issuer: "nginx-cluster-issuer"
+spec:
+  tls:
+  - hosts:
+    - auditcompliance.cloud
+    - www.auditcompliance.cloud
+    secretName: auditcompliance-tls
+  rules:
+  - host: auditcompliance.cloud
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-api
+            port:
+              number: 8000
+  - host: www.auditcompliance.cloud
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-api
+            port:
+              number: 8000

@@ -1,0 +1,287 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: audit-compliance
+
+---
+# PostgreSQL Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: audit-db-secret
+  namespace: audit-compliance
+type: Opaque
+data:
+  # Base64 encoded values
+  POSTGRES_PASSWORD: YXV0aXBfcGFzc3dvcmQ=
+  DB_USER: YXV0aXVfZGI=
+
+---
+# Backend API Secret (AI provider key + app secret key)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: audit-api-secret
+  namespace: audit-compliance
+type: Opaque
+data:
+  # Base64 encoded placeholders - replace with real values before deploying
+  AI_API_KEY: eW91ci1haS1hcGkta2V5LWhlcmU=
+  SECRET_KEY: eW91ci1zZWNyZXQta2V5LWhlcmU=
+
+---
+# PostgreSQL PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: audit-compliance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: audit-compliance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "auditcompliance"
+        - name: POSTGRES_USER
+          value: "audit_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: audit-db-secret
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: audit-compliance
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: audit-compliance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command:
+        - redis-server
+        - --appendonly
+        - yes
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: audit-compliance
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+
+---
+# FastAPI Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: audit-compliance
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      containers:
+      - name: backend
+        image: auditcompliance/backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: audit-db-secret
+              key: POSTGRES_PASSWORD
+        - name: DATABASE_URL
+          value: "postgresql://audit_user:$(POSTGRES_PASSWORD)@postgres:5432/auditcompliance"
+        - name: REDIS_URL
+          value: "redis://redis:6379/0"
+        - name: AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: audit-api-secret
+              key: AI_API_KEY
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: audit-api-secret
+              key: SECRET_KEY
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+# Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api
+  namespace: audit-compliance
+spec:
+  selector:
+    app: backend-api
+  ports:
+  - port: 8000
+    targetPort: 8000
+
+---
+# Celery Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: audit-compliance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+      - name: worker
+        image: auditcompliance/backend:latest
+        command:
+        - celery
+        - -A
+        - app.workers.tasks
+        - worker
+        - --loglevel
+        - info
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: audit-db-secret
+              key: POSTGRES_PASSWORD
+        - name: DATABASE_URL
+          value: "postgresql://audit_user:$(POSTGRES_PASSWORD)@postgres:5432/auditcompliance"
+        - name: REDIS_URL
+          value: "redis://redis:6379/0"
+        - name: AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: audit-api-secret
+              key: AI_API_KEY
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: audit-api-secret
+              key: SECRET_KEY
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audit-compliance-ingress
+  namespace: audit-compliance
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: auditcompliance.cloud
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-api
+            port:
+              number: 8000
