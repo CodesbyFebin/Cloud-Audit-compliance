@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import {
   Button,
-  Input,
+  TextInput,
   Card,
   Title,
   Text,
@@ -146,7 +146,7 @@ export default function Home() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Text className="text-sm text-gray-400 mb-1">Company Name</Text>
-                    <Input
+                    <TextInput
                       placeholder="Acme Corp"
                       value={formData.company_name}
                       onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
@@ -155,7 +155,7 @@ export default function Home() {
                   </div>
                   <div>
                     <Text className="text-sm text-gray-400 mb-1">Work Email</Text>
-                    <Input
+                    <TextInput
                       type="email"
                       placeholder="you@company.com"
                       value={formData.email}
@@ -167,7 +167,7 @@ export default function Home() {
 
                 <div>
                   <Text className="text-sm text-gray-400 mb-1">Slack Workspace (optional)</Text>
-                  <Input
+                  <TextInput
                     placeholder="slack.com/company"
                     value={formData.slack_token}
                     onChange={(e) => setFormData({ ...formData, slack_token: e.target.value })}
@@ -180,7 +180,7 @@ export default function Home() {
 
                 <div>
                   <Text className="text-sm text-gray-400 mb-1">GitHub Repo (optional)</Text>
-                  <Input
+                  <TextInput
                     placeholder="github.com/company/repo"
                     value={formData.github_repo}
                     onChange={(e) => setFormData({ ...formData, github_repo: e.target.value })}

@@ -113,9 +113,9 @@ class ClassificationService:
         
         # Credit Card pattern
         cc_pattern = r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b'
-        # API Key pattern
+        # API Key pattern (covers hyphenated formats like sk-proj-..., sk-ant-...)
         api_pattern = r'(?:api_key|apikey|api-key|key|token|secret)=(?:[' \
-                       r'a-zA-Z0-9_]{20,}|ghp_[a-zA-Z0-9]{36})'
+                       r'a-zA-Z0-9_\-]{20,}|ghp_[a-zA-Z0-9]{36})'
         # Email pattern  
         email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
         
